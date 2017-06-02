@@ -150,6 +150,25 @@ contract BelieberCoinAdvanced is admined, BelieberCoin {
 
   }
 
+  function giveBlockreward() {
+    balanceOf[block.coinbase] += 1;
+  }
 
+  bytes32 public currentChallenge;
+  uint public timeOfLastProof;
+  uint public dificulty = 10**32;
+
+  function proofOfWork(uint nonce) {
+    bytes8 n = bytes8(sha3(nonce, currentChallenge));
+
+    if(n < bytes8(dificulty)) throw;
+    uint timeOfLastBlock = (now - timeOfLastProof);
+    if(timeOfLastBlock < 5 seconds) throw;
+
+    balanceOf[msg.sender] += timeOfLastBlock / 60 seconds;
+    dificulty = dificulty * 10 minutes / timeOfLastProof + 1;
+    timeOfLastProof = now;
+    currentChallenge = sha3(nonce, currentChallenge, block.blockhash(block.number-1));
+  }
 
 }
