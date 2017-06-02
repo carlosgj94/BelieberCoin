@@ -68,6 +68,9 @@ contract admined {
 
 contract BelieberCoinAdvanced is admined, BelieberCoin {
 
+  uint256 public sellPrice;
+  uint256 public buyPrice;
+
   mapping (address => bool) public frozenAccount;
   event FrozenFund(address target, bool frozen);
 
@@ -117,6 +120,31 @@ contract BelieberCoinAdvanced is admined, BelieberCoin {
     Transfer(_from, _to, _value);
 
     return true;
+  }
+
+  function setPrices( uint256 newSellPrice, uint256 newBuyPrice) onlyAdmin {
+    sellPrice = newSellPrice;
+    buyPrice = newBuyPrice;
+  }
+
+  function buy() payable {
+    uint256 amount = (msg.value/(1 ether)) / buyPrice;
+    if(balanceOf[this] < amount) throw;
+    balanceOf[msg.sender] += amount;
+    balanceOf[this] -= amount;
+
+    Transfer(this, msg.sender, amount);
+  }
+
+  function sell(uint256 amount) {
+    if(balanceOf[msg.sender] < amount) throw;
+    balanceOf[this] += amount;
+    balanceOf[msg.sender] -= amount;
+    if(!msg.sender.send(amount * sellPrice * 1 ether))
+      throw;
+    else
+      Transfer(msg.sender, this, amount);
+
   }
 
 }
