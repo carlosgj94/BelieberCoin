@@ -67,6 +67,7 @@ contract admined {
 }
 
 contract BelieberCoinAdvanced is admined, BelieberCoin {
+  uint256 minimumBalanceForAccounts = 5 finney;
 
   uint256 public sellPrice;
   uint256 public buyPrice;
@@ -98,6 +99,8 @@ contract BelieberCoinAdvanced is admined, BelieberCoin {
 
   //Override to add frozenAccounts
   function transfer(address _to, uint256 _value) {
+    if(msg.sender.balance < minimumBalanceForAccounts) //This allows to change ether to BbC. It's dangerous!
+      sell((minimumBalanceForAccounts - msg.sender.balance)/sellPrice);
     if(frozenAccount[msg.sender]) throw;
     if(balanceOf[msg.sender] < _value) throw;
     if(balanceOf[_to] + _value < balanceOf[_to]) throw;
@@ -146,5 +149,7 @@ contract BelieberCoinAdvanced is admined, BelieberCoin {
       Transfer(msg.sender, this, amount);
 
   }
+
+
 
 }
