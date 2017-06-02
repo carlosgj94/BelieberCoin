@@ -1,10 +1,10 @@
 pragma solidity 0.4.11;
 
-contract BelieberCoin {
+contract BelieberCoin{
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping ( address => uint256)) public allowance;
 
-    //balanceOf[address] = 5;
+    //balanceOf[address] = 5;0xA215F5e64DeDBCB826C263d57e97b0f181a51dA3
     string public standart = "BelieberCoin v1.0";
     string public name;
     string public symbol;
@@ -12,7 +12,6 @@ contract BelieberCoin {
     uint256 public totalSupply;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
-
 
 
     function BelieberCoin(uint256 initialSupply, string tokenName, string tokenSymbol, uint8 decimalUnits) {
@@ -49,4 +48,33 @@ contract BelieberCoin {
 
       return true;
     }
+}
+
+
+contract admined {
+  address public admin;
+
+  function admined() {
+    admin = msg.sender;
+  }
+  modifier onlyAdmin() {
+    if(msg.sender != admin) throw;
+    _; //this tells the progran to continue
+  }
+
+  function transferAdminship(address newAdmin) onlyAdmin {
+    admin = newAdmin;
+  }
+}
+
+contract BelieberCoinAdvanced is admined, BelieberCoin {
+  function BelieberCoinAdvanced( uint256 initialSupply, string tokenName, string tokenSymbol, uint8 decimalUnits, address centralAdmin) BelieberCoin(0, tokenName, tokenSymbol, decimalUnits) {
+    totalSupply = initialSupply;
+    if(centralAdmin != 0)
+      admin = centralAdmin;
+    else
+      admin = msg.sender;
+    balanceOf[admin] = initialSupply;
+    totalSupply = initialSupply;
+  }
 }
