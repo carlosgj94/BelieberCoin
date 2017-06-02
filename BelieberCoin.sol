@@ -26,7 +26,6 @@ contract BelieberCoin{
       if(balanceOf[msg.sender] < _value) throw;
       if(balanceOf[_to] + _value < balanceOf[_to]) throw;
 
-
       balanceOf[msg.sender] -= _value;
       balanceOf[_to] += _value;
       Transfer(msg.sender, _to, _value);
@@ -68,6 +67,10 @@ contract admined {
 }
 
 contract BelieberCoinAdvanced is admined, BelieberCoin {
+
+  mapping (address => bool) public frozenAccount;
+  event FrozenFund(address target, bool frozen);
+
   function BelieberCoinAdvanced( uint256 initialSupply, string tokenName, string tokenSymbol, uint8 decimalUnits, address centralAdmin) BelieberCoin(0, tokenName, tokenSymbol, decimalUnits) {
     totalSupply = initialSupply;
     if(centralAdmin != 0)
@@ -84,4 +87,36 @@ contract BelieberCoinAdvanced is admined, BelieberCoin {
     Transfer(0, this, mintedAmount);
     Transfer(this, target, mintedAmount);
   }
+
+  function freezeAccount(address target, bool freeze) onlyAdmin {
+    frozenAccount[target] = freeze;
+    FrozenFund(target, freeze);
+  }
+
+  //Override to add frozenAccounts
+  function transfer(address _to, uint256 _value) {
+    if(frozenAccount[msg.sender]) throw;
+    if(balanceOf[msg.sender] < _value) throw;
+    if(balanceOf[_to] + _value < balanceOf[_to]) throw;
+
+    balanceOf[msg.sender] -= _value;
+    balanceOf[_to] += _value;
+    Transfer(msg.sender, _to, _value);
+  }
+
+  //Override to add frozenAccounts
+  function transferFrom( address _from, address _to, uint256 _value) returns (bool success) {
+    if(frozenAccount[_from]) throw;
+    //End of the override
+    if(balanceOf[_from] < _value) throw;
+    if(balanceOf[_to] + _value < balanceOf[_to]) throw;
+    if(_value > allowance[_from][msg.sender]) throw;
+    balanceOf[_from] -= _value;
+    balanceOf[_to] += _value;
+    allowance[_from][msg.sender] -= _value;
+    Transfer(_from, _to, _value);
+
+    return true;
+  }
+
 }
