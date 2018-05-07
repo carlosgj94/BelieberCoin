@@ -1,174 +1,209 @@
-pragma solidity 0.4.11;
+pragma solidity ^0.4.18;
 
-contract BelieberCoin{
-    mapping (address => uint256) public balanceOf;
-    mapping (address => mapping ( address => uint256)) public allowance;
 
-    //balanceOf[address] = 5;0xA215F5e64DeDBCB826C263d57e97b0f181a51dA3
-    string public standart = "BelieberCoin v1.0";
-    string public name;
+// ----------------------------------------------------------------------------
+// Safe maths
+// ----------------------------------------------------------------------------
+contract SafeMath {
+    function safeAdd(uint a, uint b) public pure returns (uint c) {
+        c = a + b;
+        require(c >= a);
+    }
+    function safeSub(uint a, uint b) public pure returns (uint c) {
+        require(b <= a);
+        c = a - b;
+    }
+    function safeMul(uint a, uint b) public pure returns (uint c) {
+        c = a * b;
+        require(a == 0 || c / a == b);
+    }
+    function safeDiv(uint a, uint b) public pure returns (uint c) {
+        require(b > 0);
+        c = a / b;
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+// ERC Token Standard #20 Interface
+// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
+// ----------------------------------------------------------------------------
+contract ERC20Interface {
+    function totalSupply() public constant returns (uint);
+    function balanceOf(address tokenOwner) public constant returns (uint balance);
+    function allowance(address tokenOwner, address spender) public constant returns (uint remaining);
+    function transfer(address to, uint tokens) public returns (bool success);
+    function approve(address spender, uint tokens) public returns (bool success);
+    function transferFrom(address from, address to, uint tokens) public returns (bool success);
+
+    event Transfer(address indexed from, address indexed to, uint tokens);
+    event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
+}
+
+
+// ----------------------------------------------------------------------------
+// Contract function to receive approval and execute function in one call
+//
+// Borrowed from MiniMeToken
+// ----------------------------------------------------------------------------
+contract ApproveAndCallFallBack {
+    function receiveApproval(address from, uint256 tokens, address token, bytes data) public;
+}
+
+
+// ----------------------------------------------------------------------------
+// Owned contract
+// ----------------------------------------------------------------------------
+contract Owned {
+    address public owner;
+    address public newOwner;
+
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+
+    function Owned() public {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner {
+        require(msg.sender == owner);
+        _;
+    }
+
+    function transferOwnership(address _newOwner) public onlyOwner {
+        newOwner = _newOwner;
+    }
+    function acceptOwnership() public {
+        require(msg.sender == newOwner);
+        OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+        newOwner = address(0);
+    }
+}
+
+
+// ----------------------------------------------------------------------------
+// ERC20 Token, with the addition of symbol, name and decimals and assisted
+// token transfers
+// ----------------------------------------------------------------------------
+contract BelieberToken is ERC20Interface, Owned, SafeMath {
     string public symbol;
-    uint8 public decimal;
-    uint256 public totalSupply;
+    string public  name;
+    uint8 public decimals;
+    uint public _totalSupply;
 
-    event Transfer(address indexed from, address indexed to, uint256 value);
+    mapping(address => uint) balances;
+    mapping(address => mapping(address => uint)) allowed;
 
 
-    function BelieberCoin(uint256 initialSupply, string tokenName, string tokenSymbol, uint8 decimalUnits) {
-      balanceOf[msg.sender] = initialSupply;
-      totalSupply = initialSupply;
-      decimal = decimalUnits;
-      symbol = tokenSymbol;
-      name = tokenName;
+    // ------------------------------------------------------------------------
+    // Constructor
+    // ------------------------------------------------------------------------
+    function BelieberToken() public {
+        symbol = "BBC20";
+        name = "Belieber Coin";
+        decimals = 18;
+        _totalSupply = 100000000000000000000000000;
+        balances[<<Your Address HERE>>] = _totalSupply;
+        Transfer(address(0), <<Your Address HERE>>, _totalSupply);
     }
 
-    function transfer(address _to, uint256 _value) {
-      if(balanceOf[msg.sender] < _value) throw;
-      if(balanceOf[_to] + _value < balanceOf[_to]) throw;
 
-      balanceOf[msg.sender] -= _value;
-      balanceOf[_to] += _value;
-      Transfer(msg.sender, _to, _value);
+    // ------------------------------------------------------------------------
+    // Total supply
+    // ------------------------------------------------------------------------
+    function totalSupply() public constant returns (uint) {
+        return _totalSupply  - balances[address(0)];
     }
 
-    function approve(address _spender, uint256 _value) returns (bool success) {
-      allowance[msg.sender][_spender] = _value;
-      return true;
+
+    // ------------------------------------------------------------------------
+    // Get the token balance for account tokenOwner
+    // ------------------------------------------------------------------------
+    function balanceOf(address tokenOwner) public constant returns (uint balance) {
+        return balances[tokenOwner];
     }
 
-    function transferFrom( address _from, address _to, uint256 _value) returns (bool success) {
-      if(balanceOf[_from] < _value) throw;
-      if(balanceOf[_to] + _value < balanceOf[_to]) throw;
-      if(_value > allowance[_from][msg.sender]) throw;
-      balanceOf[_from] -= _value;
-      balanceOf[_to] += _value;
-      allowance[_from][msg.sender] -= _value;
-      Transfer(_from, _to, _value);
 
-      return true;
+    // ------------------------------------------------------------------------
+    // Transfer the balance from token owner's account to to account
+    // - Owner's account must have sufficient balance to transfer
+    // - 0 value transfers are allowed
+    // ------------------------------------------------------------------------
+    function transfer(address to, uint tokens) public returns (bool success) {
+        balances[msg.sender] = safeSub(balances[msg.sender], tokens);
+        balances[to] = safeAdd(balances[to], tokens);
+        Transfer(msg.sender, to, tokens);
+        return true;
     }
-}
 
 
-contract admined {
-  address public admin;
+    // ------------------------------------------------------------------------
+    // Token owner can approve for spender to transferFrom(...) tokens
+    // from the token owner's account
+    //
+    // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
+    // recommends that there are no checks for the approval double-spend attack
+    // as this should be implemented in user interfaces
+    // ------------------------------------------------------------------------
+    function approve(address spender, uint tokens) public returns (bool success) {
+        allowed[msg.sender][spender] = tokens;
+        Approval(msg.sender, spender, tokens);
+        return true;
+    }
 
-  function admined() {
-    admin = msg.sender;
-  }
-  modifier onlyAdmin() {
-    if(msg.sender != admin) throw;
-    _; //this tells the progran to continue
-  }
 
-  function transferAdminship(address newAdmin) onlyAdmin {
-    admin = newAdmin;
-  }
-}
+    // ------------------------------------------------------------------------
+    // Transfer tokens from the from account to the to account
+    //
+    // The calling account must already have sufficient tokens approve(...)-d
+    // for spending from the from account and
+    // - From account must have sufficient balance to transfer
+    // - Spender must have sufficient allowance to transfer
+    // - 0 value transfers are allowed
+    // ------------------------------------------------------------------------
+    function transferFrom(address from, address to, uint tokens) public returns (bool success) {
+        balances[from] = safeSub(balances[from], tokens);
+        allowed[from][msg.sender] = safeSub(allowed[from][msg.sender], tokens);
+        balances[to] = safeAdd(balances[to], tokens);
+        Transfer(from, to, tokens);
+        return true;
+    }
 
-contract BelieberCoinAdvanced is admined, BelieberCoin {
-  uint256 minimumBalanceForAccounts = 5 finney;
 
-  uint256 public sellPrice;
-  uint256 public buyPrice;
+    // ------------------------------------------------------------------------
+    // Returns the amount of tokens approved by the owner that can be
+    // transferred to the spender's account
+    // ------------------------------------------------------------------------
+    function allowance(address tokenOwner, address spender) public constant returns (uint remaining) {
+        return allowed[tokenOwner][spender];
+    }
 
-  mapping (address => bool) public frozenAccount;
-  event FrozenFund(address target, bool frozen);
 
-  function BelieberCoinAdvanced( uint256 initialSupply, string tokenName, string tokenSymbol, uint8 decimalUnits, address centralAdmin) BelieberCoin(0, tokenName, tokenSymbol, decimalUnits) {
-    totalSupply = initialSupply;
-    if(centralAdmin != 0)
-      admin = centralAdmin;
-    else
-      admin = msg.sender;
-    balanceOf[admin] = initialSupply;
-    totalSupply = initialSupply;
-  }
+    // ------------------------------------------------------------------------
+    // Token owner can approve for spender to transferFrom(...) tokens
+    // from the token owner's account. The spender contract function
+    // receiveApproval(...) is then executed
+    // ------------------------------------------------------------------------
+    function approveAndCall(address spender, uint tokens, bytes data) public returns (bool success) {
+        allowed[msg.sender][spender] = tokens;
+        Approval(msg.sender, spender, tokens);
+        ApproveAndCallFallBack(spender).receiveApproval(msg.sender, tokens, this, data);
+        return true;
+    }
 
-  function mintToken( address target, uint256 mintedAmount) onlyAdmin {
-    balanceOf[target] += mintedAmount;
-    totalSupply += mintedAmount;
-    Transfer(0, this, mintedAmount);
-    Transfer(this, target, mintedAmount);
-  }
 
-  function freezeAccount(address target, bool freeze) onlyAdmin {
-    frozenAccount[target] = freeze;
-    FrozenFund(target, freeze);
-  }
+    // ------------------------------------------------------------------------
+    // Don't accept ETH
+    // ------------------------------------------------------------------------
+    function () public payable {
+        revert();
+    }
 
-  //Override to add frozenAccounts
-  function transfer(address _to, uint256 _value) {
-    if(msg.sender.balance < minimumBalanceForAccounts) //This allows to change ether to BbC. It's dangerous!
-      sell((minimumBalanceForAccounts - msg.sender.balance)/sellPrice);
-    if(frozenAccount[msg.sender]) throw;
-    if(balanceOf[msg.sender] < _value) throw;
-    if(balanceOf[_to] + _value < balanceOf[_to]) throw;
 
-    balanceOf[msg.sender] -= _value;
-    balanceOf[_to] += _value;
-    Transfer(msg.sender, _to, _value);
-  }
-
-  //Override to add frozenAccounts
-  function transferFrom( address _from, address _to, uint256 _value) returns (bool success) {
-    if(frozenAccount[_from]) throw;
-    //End of the override
-    if(balanceOf[_from] < _value) throw;
-    if(balanceOf[_to] + _value < balanceOf[_to]) throw;
-    if(_value > allowance[_from][msg.sender]) throw;
-    balanceOf[_from] -= _value;
-    balanceOf[_to] += _value;
-    allowance[_from][msg.sender] -= _value;
-    Transfer(_from, _to, _value);
-
-    return true;
-  }
-
-  function setPrices( uint256 newSellPrice, uint256 newBuyPrice) onlyAdmin {
-    sellPrice = newSellPrice;
-    buyPrice = newBuyPrice;
-  }
-
-  function buy() payable {
-    uint256 amount = (msg.value/(1 ether)) / buyPrice;
-    if(balanceOf[this] < amount) throw;
-    balanceOf[msg.sender] += amount;
-    balanceOf[this] -= amount;
-
-    Transfer(this, msg.sender, amount);
-  }
-
-  function sell(uint256 amount) {
-    if(balanceOf[msg.sender] < amount) throw;
-    balanceOf[this] += amount;
-    balanceOf[msg.sender] -= amount;
-    if(!msg.sender.send(amount * sellPrice * 1 ether))
-      throw;
-    else
-      Transfer(msg.sender, this, amount);
-
-  }
-
-  function giveBlockreward() {
-    balanceOf[block.coinbase] += 1;
-  }
-
-  bytes32 public currentChallenge;
-  uint public timeOfLastProof;
-  uint public dificulty = 10**32;
-
-  function proofOfWork(uint nonce) {
-    bytes8 n = bytes8(sha3(nonce, currentChallenge));
-
-    if(n < bytes8(dificulty)) throw;
-    uint timeOfLastBlock = (now - timeOfLastProof);
-    if(timeOfLastBlock < 5 seconds) throw;
-
-    balanceOf[msg.sender] += timeOfLastBlock / 60 seconds;
-    dificulty = dificulty * 10 minutes / timeOfLastProof + 1;
-    timeOfLastProof = now;
-    currentChallenge = sha3(nonce, currentChallenge, block.blockhash(block.number-1));
-  }
-
+    // ------------------------------------------------------------------------
+    // Owner can transfer out any accidentally sent ERC20 tokens
+    // ------------------------------------------------------------------------
+    function transferAnyERC20Token(address tokenAddress, uint tokens) public onlyOwner returns (bool success) {
+        return ERC20Interface(tokenAddress).transfer(owner, tokens);
+    }
 }
